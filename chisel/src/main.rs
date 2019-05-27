@@ -15,7 +15,6 @@ use libchisel::{
 };
 
 use clap::{App, Arg, ArgMatches, SubCommand};
-use libchisel::*;
 use parity_wasm::elements::{deserialize_buffer, serialize_to_file, Module, Serialize};
 use serde_yaml::Value;
 
