@@ -1,6 +1,7 @@
 mod errors;
 
 use std::collections::HashMap;
+use std::error::Error;
 use std::fs::canonicalize;
 use std::path::PathBuf;
 use std::process;
@@ -13,8 +14,10 @@ use libchisel::{
     verifyexports::*, verifyimports::*,
 };
 
-const CHISEL_DEFAULT_CONFIG_PATH_RELATIVE: &'static str = "chisel.yml";
-const CHISEL_DEFAULT_CONFIG_PATH_RELATIVE_ALT: &'static str = ".chisel.yml";
+use log::debug;
+
+const CHISEL_DEFAULT_CONFIG_PATH_RELATIVE: &'static str = "./chisel.yml";
+const CHISEL_DEFAULT_CONFIG_PATH_RELATIVE_ALT: &'static str = "./.chisel.yml";
 
 struct ChiselContext {
     config_path: PathBuf,
@@ -22,7 +25,17 @@ struct ChiselContext {
 }
 
 impl ChiselContext {
-    pub fn new(args: &ArgMatches) -> Result<Self, ConfigError> {
+    pub fn new() -> Result<Self, ConfigError> {
+        let _config_path = canonicalize(CHISEL_DEFAULT_CONFIG_PATH_RELATIVE)
+            .unwrap_or(canonicalize(CHISEL_DEFAULT_CONFIG_PATH_RELATIVE_ALT)?);
+
+        Ok(ChiselContext {
+            config_path: _config_path,
+            opts: HashMap::new(),
+        })
+    }
+
+    pub fn from_args(args: &ArgMatches) -> Result<Self, ConfigError> {
         let config_path_match = args.value_of("CONFIG");
 
         let _config_path = if let Some(path) = config_path_match {
@@ -71,7 +84,18 @@ fn main() {
         .get_matches();
 
     match cli_matches.subcommand() {
-        ("run", args) => process::exit(0),
+        ("run", args) => {
+            let context = if let Some(matches) = args {
+                ChiselContext::from_args(matches).unwrap_or_else(|err| {
+                    exit_with_error(1, &format!("Failed to configure! {}", err.description()))
+                })
+            } else {
+                ChiselContext::new().unwrap_or_else(|err| {
+                    exit_with_error(1, &format!("Failed to configure! {}", err.description()))
+                })
+            };
+            process::exit(0);
+        }
         _ => exit_with_error(-1, "No subcommand provided"),
     };
 }
