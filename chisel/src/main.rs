@@ -1,51 +1,20 @@
-use std::fs::canonicalize;
-use std::io;
-use std::error::{self, Error};
-use std::process;
-use std::fmt;
-use std::collections::HashMap;
-use std::path::PathBuf;
+mod errors;
 
+use std::collections::HashMap;
+use std::fs::canonicalize;
+use std::path::PathBuf;
+use std::process;
+
+use clap::{crate_description, crate_name, crate_version, App, Arg, ArgMatches, SubCommand};
+
+use crate::errors::ConfigError;
 use libchisel::{
     checkstartfunc::*, deployer::*, remapimports::*, repack::*, trimexports::*, trimstartfunc::*,
     verifyexports::*, verifyimports::*,
 };
 
-use clap::{App, Arg, ArgMatches, SubCommand, crate_name, crate_description, crate_version};
-
 const CHISEL_DEFAULT_CONFIG_PATH_RELATIVE: &'static str = "chisel.yml";
 const CHISEL_DEFAULT_CONFIG_PATH_RELATIVE_ALT: &'static str = ".chisel.yml";
-
-#[derive(Debug)]
-enum ConfigError {
-    Io(io::Error),
-    Unknown(String),
-}
-
-impl From<io::Error> for ConfigError {
-    fn from(e: io::Error) -> ConfigError {
-        ConfigError::Io(e)
-    }
-}
-
-impl error::Error for ConfigError {
-    fn description(&self) -> &str {
-        match self {
-            ConfigError::Io(e) => e.description(),
-            ConfigError::Unknown(s) => s.as_str(),
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
-        None
-    }
-}
-
-impl fmt::Display for ConfigError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Configuration error: {}", self.description())
-    }
-}
 
 struct ChiselContext {
     config_path: PathBuf,
@@ -62,13 +31,11 @@ impl ChiselContext {
             canonicalize(CHISEL_DEFAULT_CONFIG_PATH_RELATIVE)
                 .unwrap_or(canonicalize(CHISEL_DEFAULT_CONFIG_PATH_RELATIVE_ALT)?)
         };
-        
-        Ok(
-            ChiselContext {
-                config_path: _config_path,
-                opts: HashMap::new(),
-            }
-        )
+
+        Ok(ChiselContext {
+            config_path: _config_path,
+            opts: HashMap::new(),
+        })
     }
 }
 
@@ -102,7 +69,7 @@ fn main() {
                 ),
         )
         .get_matches();
-    
+
     match cli_matches.subcommand() {
         ("run", args) => process::exit(0),
         _ => exit_with_error(-1, "No subcommand provided"),
