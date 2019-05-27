@@ -1,12 +1,4 @@
-extern crate libchisel;
-extern crate parity_wasm;
-#[macro_use]
-extern crate clap;
-extern crate serde;
-extern crate serde_derive;
-extern crate serde_yaml;
-
-use std::fs::{read, read_to_string, canonicalize};
+use std::fs::canonicalize;
 use std::io;
 use std::error::{self, Error};
 use std::process;
@@ -19,9 +11,7 @@ use libchisel::{
     verifyexports::*, verifyimports::*,
 };
 
-use clap::{App, Arg, ArgMatches, SubCommand};
-use parity_wasm::elements::{deserialize_buffer, serialize_to_file, Module, Serialize};
-use serde_yaml::Value;
+use clap::{App, Arg, ArgMatches, SubCommand, crate_name, crate_description, crate_version};
 
 const CHISEL_DEFAULT_CONFIG_PATH_RELATIVE: &'static str = "chisel.yml";
 const CHISEL_DEFAULT_CONFIG_PATH_RELATIVE_ALT: &'static str = ".chisel.yml";
