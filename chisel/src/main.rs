@@ -7,57 +7,56 @@ use std::path::PathBuf;
 use std::process;
 
 use clap::{crate_description, crate_name, crate_version, App, Arg, ArgMatches, SubCommand};
+use log::debug;
 
-use crate::errors::ConfigError;
 use libchisel::{
     checkstartfunc::*, deployer::*, remapimports::*, repack::*, trimexports::*, trimstartfunc::*,
     verifyexports::*, verifyimports::*,
 };
 
-use log::debug;
+use errors::ChiselError;
+use errors::ConfigError;
 
-const CHISEL_DEFAULT_CONFIG_PATH_RELATIVE: &'static str = "./chisel.yml";
-const CHISEL_DEFAULT_CONFIG_PATH_RELATIVE_ALT: &'static str = "./.chisel.yml";
+const CHISEL_DEFAULT_CONFIG_PATH: &'static str = "./chisel.yml";
+const CHISEL_DEFAULT_CONFIG_PATH_ALT: &'static str = "./.chisel.yml";
 
 struct ChiselContext {
     config_path: PathBuf,
     opts: HashMap<String, String>,
 }
 
-impl ChiselContext {
-    pub fn new() -> Result<Self, ConfigError> {
-        let _config_path = canonicalize(CHISEL_DEFAULT_CONFIG_PATH_RELATIVE)
-            .unwrap_or(canonicalize(CHISEL_DEFAULT_CONFIG_PATH_RELATIVE_ALT)?);
+// impl ChiselContext {
+// 
+// }
 
-        Ok(ChiselContext {
-            config_path: _config_path,
-            opts: HashMap::new(),
-        })
-    }
-
-    pub fn from_args(args: &ArgMatches) -> Result<Self, ConfigError> {
-        let config_path_match = args.value_of("CONFIG");
-
-        let _config_path = if let Some(path) = config_path_match {
-            canonicalize(path.to_string())?
+fn resolve_config_path(matched: Option<&str>) -> Result<PathBuf, ConfigError> {
+    if let Some(arg) = matched {
+        match canonicalize(arg.to_string()) {
+            Ok(ret) => Ok(ret),
+            Err(_) => Err(ConfigError::NotFound(Some(format!("Could not resolve config file path: {}", arg)))),
+        }
+    } else {
+        if let Ok(default_path) = canonicalize(CHISEL_DEFAULT_CONFIG_PATH) {
+            Ok(default_path)
         } else {
-            canonicalize(CHISEL_DEFAULT_CONFIG_PATH_RELATIVE)
-                .unwrap_or(canonicalize(CHISEL_DEFAULT_CONFIG_PATH_RELATIVE_ALT)?)
-        };
-
-        Ok(ChiselContext {
-            config_path: _config_path,
-            opts: HashMap::new(),
-        })
+            match canonicalize(CHISEL_DEFAULT_CONFIG_PATH_ALT) {
+                // FIXME: Handle permission errors as well
+                Ok(ret) => Ok(ret),
+                Err(_) => Err(ConfigError::NotFound(None))
+            }
+        }
     }
 }
 
 /// Execute chisel given a configuration.
-fn subcommand_run(context: &ChiselContext) {
+fn subcommand_run(args: Option<&ArgMatches>) -> Result<(), ChiselError>{
     // Get config file.
+    if let Some(matches) = args {
+        let config_path = resolve_config_path(matches.value_of("CONFIG"))?;
+    }
     // Parse config file.
     // Prepare module set and options.
-    unimplemented!();
+    Ok(())
 }
 
 fn exit_with_error(code: i32, message: &str) -> ! {
@@ -85,16 +84,10 @@ fn main() {
 
     match cli_matches.subcommand() {
         ("run", args) => {
-            let context = if let Some(matches) = args {
-                ChiselContext::from_args(matches).unwrap_or_else(|err| {
-                    exit_with_error(1, &format!("Failed to configure! {}", err.description()))
-                })
-            } else {
-                ChiselContext::new().unwrap_or_else(|err| {
-                    exit_with_error(1, &format!("Failed to configure! {}", err.description()))
-                })
+            match subcommand_run(args) {
+                Ok(()) => process::exit(0),
+                Err(e) => exit_with_error(1, e.description()),
             };
-            process::exit(0);
         }
         _ => exit_with_error(-1, "No subcommand provided"),
     };
