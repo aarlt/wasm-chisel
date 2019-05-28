@@ -26,14 +26,17 @@ struct ChiselContext {
 }
 
 // impl ChiselContext {
-// 
+//
 // }
 
 fn resolve_config_path(matched: Option<&str>) -> Result<PathBuf, ConfigError> {
     if let Some(arg) = matched {
         match canonicalize(arg.to_string()) {
             Ok(ret) => Ok(ret),
-            Err(_) => Err(ConfigError::NotFound(Some(format!("Could not resolve config file path: {}", arg)))),
+            Err(_) => Err(ConfigError::NotFound(Some(format!(
+                "Could not resolve config file path: {}",
+                arg
+            )))),
         }
     } else {
         if let Ok(default_path) = canonicalize(CHISEL_DEFAULT_CONFIG_PATH) {
@@ -42,14 +45,14 @@ fn resolve_config_path(matched: Option<&str>) -> Result<PathBuf, ConfigError> {
             match canonicalize(CHISEL_DEFAULT_CONFIG_PATH_ALT) {
                 // FIXME: Handle permission errors as well
                 Ok(ret) => Ok(ret),
-                Err(_) => Err(ConfigError::NotFound(None))
+                Err(_) => Err(ConfigError::NotFound(None)),
             }
         }
     }
 }
 
 /// Execute chisel given a configuration.
-fn subcommand_run(args: Option<&ArgMatches>) -> Result<(), ChiselError>{
+fn subcommand_run(args: Option<&ArgMatches>) -> Result<(), ChiselError> {
     // Get config file.
     if let Some(matches) = args {
         let config_path = resolve_config_path(matches.value_of("CONFIG"))?;

@@ -30,10 +30,12 @@ impl error::Error for ChiselError {
 impl error::Error for ConfigError {
     fn description(&self) -> &str {
         match self {
-            ConfigError::NotFound(e) => if let Some(s) = e {
-                s.as_str()
-            } else {
-                "Could not find a configuration file"
+            ConfigError::NotFound(e) => {
+                if let Some(s) = e {
+                    s.as_str()
+                } else {
+                    "Could not find a configuration file"
+                }
             }
             ConfigError::Unknown(s) => s.as_str(),
         }
