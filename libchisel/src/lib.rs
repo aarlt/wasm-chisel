@@ -1,3 +1,4 @@
+#[cfg(feature = "binaryen")]
 extern crate binaryen;
 extern crate byteorder;
 extern crate parity_wasm;
@@ -7,6 +8,7 @@ use parity_wasm::elements::Module;
 
 pub mod imports;
 
+#[cfg(feature = "binaryen")]
 pub mod binaryenopt;
 pub mod checkstartfunc;
 pub mod deployer;
