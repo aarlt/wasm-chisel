@@ -1,4 +1,5 @@
 mod config;
+mod driver;
 mod errors;
 mod run;
 

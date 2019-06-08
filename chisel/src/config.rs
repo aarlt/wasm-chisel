@@ -7,6 +7,19 @@ use crate::errors::ConfigError;
 const CHISEL_DEFAULT_CONFIG_PATH: &'static str = "./chisel.yml";
 const CHISEL_DEFAULT_CONFIG_PATH_ALT: &'static str = "./.chisel.yml";
 
+/// The configuration structure, parsed directly from the configuration file.
+pub struct Configuration(Vec<Ruleset>);
+
+pub struct Ruleset {
+    file: PathBuf,
+    out: Option<PathBuf>,
+    module_configurations: Vec<ModuleConfiguration>,
+}
+
+pub struct ModuleConfiguration {
+    flags: HashMap<String, String>,
+}
+
 pub fn resolve_config_path(matched: Option<&str>) -> Result<PathBuf, Box<dyn Error>> {
     if let Some(arg) = matched {
         match canonicalize(arg.to_string()) {
