@@ -1,6 +1,5 @@
 use std::error::{self, Error};
 use std::fmt;
-use std::io;
 
 #[derive(Debug)]
 pub enum ChiselError {
