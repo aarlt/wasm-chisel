@@ -22,8 +22,6 @@ pub enum ChiselRunner<'a> {
 
 /// A list of Chisel modules to run. Translators are run before the validators by default.
 pub struct ChiselModuleSet<'a> {
-    /// Whether to instantiate in place by default.
-    in_place: bool,
     /// Translators to be run. Translators are run before validators by default.
     translators: Vec<&'a dyn ModuleTranslator>,
     /// Validators to be run.
@@ -43,56 +41,55 @@ impl<'a> ChiselRunner<'a> {
     }
 
     // FIXME: needs refactor
-    /// Run all rulesets and propagate errors.
-    pub fn run(&mut self) -> Result<(), ()> {
-        match self {
-            //TODO: why does only this variant need the ref pattern?
-            ChiselRunner::NormalMode(ref mut module, ref mut chisel_mods) => {
-                let translation_results = chisel_mods.run_translators(module);
-                // handle errors
-                let validation_results = chisel_mods.run_validators(module);
-                //TODO
-                Ok(())
-            }
-            ChiselRunner::CreateMode(creator, chisel_mods) => {
-                // TODO: Need to propagate errors here when it is implemented.
-                let mut module = creator.create().expect("creation failed");
-
-                // Run all the translators first.
-                let translation_results = chisel_mods.run_translators(&mut module);
-
-                // If any of the modules had an unrecoverable error, then propagate it.
-                if let Some(e) = translation_results.iter().find(|result| match result {
-                    Err(_) => true,
-                    Ok(_) => false,
-                }) {
-                    //TODO: proper error handling
-                    panic!("Translator module internal error");
-                }
-
-                // Validate.
-                let validation_results = chisel_mods.run_validators(&mut module);
-
-                // Propagate any errors here.
-                if let Some(e) = validation_results.iter().find(|result| match result {
-                    Err(_) => true,
-                    Ok(_) => false,
-                }) {
-                    //TODO: proper error handling
-                    panic!("Validator module internal error");
-                }
-
-                Ok(())
-            }
-        }
-    }
+//    /// Run all rulesets and propagate errors.
+//    pub fn run(&mut self) -> Result<(), ()> {
+//        match self {
+//            //TODO: why does only this variant need the ref pattern?
+//            ChiselRunner::NormalMode(ref mut module, ref mut chisel_mods) => {
+//                let translation_results = chisel_mods.run_translators(module);
+//                // handle errors
+//                let validation_results = chisel_mods.run_validators(module);
+//                //TODO
+//                Ok(())
+//            }
+//            ChiselRunner::CreateMode(creator, chisel_mods) => {
+//                // TODO: Need to propagate errors here when it is implemented.
+//                let mut module = creator.create().expect("creation failed");
+//
+//                // Run all the translators first.
+//                let translation_results = chisel_mods.run_translators(&mut module);
+//
+//                // If any of the modules had an unrecoverable error, then propagate it.
+//                if let Some(e) = translation_results.iter().find(|result| match result {
+//                    Err(_) => true,
+//                    Ok(_) => false,
+//                }) {
+//                    //TODO: proper error handling
+//                    panic!("Translator module internal error");
+//                }
+//
+//                // Validate.
+//                let validation_results = chisel_mods.run_validators(&mut module);
+//
+//                // Propagate any errors here.
+//                if let Some(e) = validation_results.iter().find(|result| match result {
+//                    Err(_) => true,
+//                    Ok(_) => false,
+//                }) {
+//                    //TODO: proper error handling
+//                    panic!("Validator module internal error");
+//                }
+//
+//                Ok(())
+//            }
+//        }
+//    }
 }
 
 impl<'a> ChiselModuleSet<'a> {
     /// Construct an empty module set, defaulting not to translate in place.
     pub fn new() -> Self {
         ChiselModuleSet {
-            in_place: false,
             translators: Vec::new(),
             validators: Vec::new(),
         }
@@ -100,12 +97,10 @@ impl<'a> ChiselModuleSet<'a> {
 
     /// Directly instantiate from arguments.
     pub fn with_modules(
-        translate_in_place: bool,
         translator_mods: Vec<&'a dyn ModuleTranslator>,
         validator_mods: Vec<&'a dyn ModuleValidator>,
     ) -> Self {
         ChiselModuleSet {
-            in_place: translate_in_place,
             translators: translator_mods,
             validators: validator_mods,
         }
@@ -123,46 +118,43 @@ impl<'a> ChiselModuleSet<'a> {
 
     /// Runs all the translators in the module set. On success, returns a Vec of results describing
     /// the status of the contained chisel modules' executions.
-    pub fn run_translators(&mut self, mut module: &mut Module) -> Vec<Result<bool, ModuleError>> {
-        let mut ret: Vec<Result<bool, ModuleError>> = Vec::new();
-        // Execute each chisel module and push the results into the return buffer.
-        for chisel_mod in self.translators.iter() {
-            // If configured to translate in place, then attempt to and fallback to conventional
-            // translation (optionally).
-            if self.in_place {
-                match chisel_mod.translate_inplace(&mut module) {
-                    Ok(mutated) => ret.push(Ok(mutated)),
-                    Err(e) => {
-                        if e == ModuleError::NotSupported {
-                            // If we allow to fallback to functional mode, try doing so
-                        }
-                    }
+    pub fn run_translators(&mut self, mut module: &mut Module) -> Result<Vec<bool>, Vec<ModuleError>> {
+        let (oks, errs): (Vec<Result<bool, ModuleError>>, Vec<Result<bool, ModuleError>>) = self.translators.iter()
+            .map(|translator| {
+                let result = translator.translate(&module);
+                match result {
+                    Ok(optional) => if let Some(new_module) = optional {
+                        *module = new_module;
+                        Ok(true)
+                    } else {
+                        Ok(false)
+                    },
+                    Err(e) => Err(e),
                 }
-            } else {
-                // Translate conventionally.
-                match chisel_mod.translate(&module) {
-                    Ok(m) => {
-                        if let Some(mutated) = m {
-                            // Set the module to the returned translation.
-                            *module = mutated;
-                            ret.push(Ok(true));
-                        } else {
-                            ret.push(Ok(false));
-                        }
-                    }
-                    Err(e) => ret.push(Err(e)),
-                }
-            }
+            })
+            .partition(|result| result.is_ok());
+
+        // If there were any errors, propagate.
+        if errs.len() > 0 {
+            Err(errs.iter().map(|err| err.clone().unwrap_err()).collect())
+        } else {
+            Ok(oks.iter().map(|ok| ok.clone().unwrap()).collect())
         }
-        ret
     }
 
-    pub fn run_validators(&self, module: &Module) -> Vec<Result<bool, ModuleError>> {
-        // Return type of ModuleValidator is the same type, so simply iterate over the provided
-        // modules and map them to their results.
-        self.validators
+    pub fn run_validators(&self, module: &Module) -> Result<Vec<bool>, Vec<ModuleError>> {
+        // Iterate over the results of the validation and split them into two vectors of Ok and
+        // Err.
+        let (oks, errs): (Vec<Result<bool, ModuleError>>, Vec<Result<bool, ModuleError>>) = self.validators
             .iter()
             .map(|m| m.validate(&module))
-            .collect()
+            .partition(|result| result.is_ok());
+
+        // If there were any errors, propagate.
+        if errs.len() > 0 {
+            Err(errs.iter().map(|err| err.clone().unwrap_err()).collect())
+        } else {
+            Ok(oks.iter().map(|ok| ok.clone().unwrap()).collect())
+        }
     }
 }

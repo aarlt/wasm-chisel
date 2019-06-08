@@ -20,7 +20,7 @@ mod utils;
 
 use std::{error, fmt};
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub enum ModuleError {
     NotSupported,
     NotFound,
