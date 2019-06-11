@@ -1,4 +1,4 @@
-use super::{ModuleError, ModuleValidator};
+use super::{ChiselModule, ModuleError, ModuleValidator};
 use parity_wasm::elements::Module;
 
 /// Struct on which ModuleValidator is implemented.
@@ -11,6 +11,18 @@ impl CheckStartFunc {
         CheckStartFunc {
             start_required: is_start_required,
         }
+    }
+}
+
+impl<'a> ChiselModule<'a> for CheckStartFunc {
+    type ObjectReference = &'a dyn ModuleValidator;
+
+    fn id() -> &'static str {
+        "checkstartfunc"
+    }
+
+    fn as_abstract(&'a self) -> Self::ObjectReference {
+        self as Self::ObjectReference
     }
 }
 
@@ -83,5 +95,22 @@ mod tests {
 
         let result = checker.validate(&module).unwrap();
         assert_eq!(false, result);
+    }
+
+    #[test]
+    fn as_abstract() {
+        let wasm: Vec<u8> = vec![
+            0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x04, 0x01, 0x60, 0x00, 0x00,
+            0x03, 0x02, 0x01, 0x00, 0x07, 0x08, 0x01, 0x04, 0x6d, 0x61, 0x69, 0x6e, 0x00, 0x00,
+            0x0a, 0x04, 0x01, 0x02, 0x00, 0x0b,
+        ];
+
+        let module = deserialize_buffer::<Module>(&wasm).unwrap();
+        let checker = CheckStartFunc::new(false);
+
+        let as_trait: &dyn ModuleValidator = checker.as_abstract();
+
+        let result = as_trait.validate(&module).unwrap();
+        assert_eq!(true, result);
     }
 }

@@ -27,6 +27,16 @@ pub enum ModuleError {
     Custom(String),
 }
 
+/// Utility interface for chisel modules.
+pub trait ChiselModule<'a>: Sized {
+    type ObjectReference: ?Sized;
+    /// Returns the name of the chisel module.
+    fn id() -> &'static str;
+
+    /// Borrows the instance as a trait object.
+    fn as_abstract(&'a self) -> Self::ObjectReference;
+}
+
 pub trait ModuleCreator {
     /// Returns new module.
     fn create(&self) -> Result<Module, ModuleError>;
