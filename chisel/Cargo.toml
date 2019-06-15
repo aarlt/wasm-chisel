@@ -17,3 +17,9 @@ clap = "2.32.0"
 serde = "1.0.80"
 serde_derive = "1.0.80"
 serde_yaml = "0.8.7"
+
+[dependencies.binaryen]
+libchisel = { path = "../libchisel", version = "0.4.0", features = "binaryen" }
+
+[features]
+default = []

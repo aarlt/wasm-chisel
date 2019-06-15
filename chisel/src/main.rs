@@ -10,9 +10,12 @@ use std::fs::{read, read_to_string};
 use std::process;
 
 use libchisel::{
-    binaryenopt::*, checkstartfunc::*, deployer::*, remapimports::*, remapstart::*, repack::*,
-    trimexports::*, trimstartfunc::*, verifyexports::*, verifyimports::*,
+    checkstartfunc::*, deployer::*, remapimports::*, remapstart::*, repack::*, trimexports::*,
+    trimstartfunc::*, verifyexports::*, verifyimports::*,
 };
+
+#[cfg(feature = "binaryen")]
+use libchisel::binerynopt::*;
 
 use clap::{App, Arg, ArgMatches, SubCommand};
 use libchisel::*;
@@ -263,6 +266,7 @@ fn execute_module(context: &ModuleContext, module: &mut Module) -> bool {
             }
         }
         "repack" => translate_module(module, Repack::new()),
+        #[cfg(feature = "binaryen")]
         "binaryenopt" => {
             is_translator = true;
             if let Ok(chisel) = BinaryenOptimiser::with_preset(&preset) {
